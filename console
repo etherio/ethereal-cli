@@ -8,3 +8,15 @@ $app = new Ethereal\Foundation\Application(__DIR__);
 $app::setInstance($app);
 
 echo er_name(), er_version(), PHP_EOL;
+
+env('APP_ENV') === 'console' && array_shift($argv);
+
+$bash_source = array_shift($argv);
+$arguments = $argv;
+
+if (! $argv) {
+    $name = basename($bash_source);
+    echo PHP_EOL, "\033[1;31m • \033[0m Error: run \033[1;36m$name help\033[0m for list of avaliable commands.", PHP_EOL;
+    return;
+}
+
