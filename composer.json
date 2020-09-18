@@ -18,7 +18,7 @@
       "Ethereal\\": "src/"
 	},
 	"files": [
-      "src/Core/helper.php"
+      "src/helper.php"
 	]
   },
   "autoload-dev": {

@@ -3,4 +3,8 @@
 
 require_once realpath(__DIR__.'/vendor/autoload.php') ?: dirname(__DIR__, 2).'/vendor/autoload.php';
 
+$app = new Ethereal\Foundation\Application(__DIR__);
 
+$app::setInstance($app);
+
+echo er_name(), er_version(), PHP_EOL;
