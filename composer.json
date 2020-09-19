@@ -35,8 +35,7 @@
 	]
   },
   "bin": [
-    "bin/ethereal",
-	"bin/ethereal.cmd"
+    "ethereal"
   ],
   "minimum-stability": "dev",
   "prefer-stable": true

@@ -1,8 +1,0 @@
-#!/bin/bash -ea
-
-APP_ENV=console
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCES[0]}")" && pwd)
-CONSOLE_PATH=$ROOT_DIR/$APP_ENV
-
-php $CONSOLE_PATH $0 $@
-
