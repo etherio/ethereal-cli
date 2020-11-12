@@ -2,7 +2,10 @@
   "name": "etherio/ethereal-cli",
   "description": "The Command Line Interface for Ethereal Framework by Etherio",
   "type": "library",
-  "keywords": [],
+  "keywords": [
+    "cli",
+    "console"
+  ],
   "authors": [{
     "name": "Shin Maung Maung",
 	"email": "ethereal97@gmail.com",
@@ -13,26 +16,10 @@
   "require": {
     "php": "^7.2"
   },
-  "autoload": {
-    "psr-4": {
-      "Ethereal\\": "src/"
-	},
-	"files": [
-      "src/helper.php"
-	]
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Tests\\": "tests/"
-	}
-  },
   "scripts": {
     "post-package-install": [],
     "post-install-cmd": [],
-	"post-dump-autoload": [],
-	"test": [
-      "php ./tests/bootstrap.php"
-	]
+	"post-dump-autoload": []
   },
   "bin": [
     "ethereal"

@@ -1,22 +1,144 @@
 #!/usr/bin/env php
 <?php
 
-require_once realpath(__DIR__.'/vendor/autoload.php') ?: dirname(__DIR__, 3).'/vendor/autoload.php';
+$src = array_shift($argv) ?: __FILE__;
+$cmd = array_shift($argv);
 
-$app = new Ethereal\Foundation\Application(__DIR__);
-
-$app::setInstance($app);
-
-echo er_name(), er_version(), PHP_EOL;
-
-env('APP_ENV') === 'console' && array_shift($argv);
-
-$bash_source = array_shift($argv);
-$arguments = $argv;
-
-if (! $argv) {
-    $name = basename($bash_source);
+if (!$cmd) {
+    $name = basename($src);
     echo PHP_EOL, "\033[1;31m • \033[0m Error: run \033[1;36m$name help\033[0m for list of avaliable commands.", PHP_EOL;
-    return;
+    exit(1);
 }
 
+const GIT_STATUS = [
+    'M' => 'modified',
+    '' => 'unmodified',
+    'A' => 'added',
+    'D' => 'deleted',
+    'R' => 'renamed',
+    'C' => 'copied',
+    'U' => 'updated, but not merged',
+    '?' => 'untracked',
+    '!' => 'ignored'
+];
+
+switch ($cmd) {
+    case 'commit':
+    case 'git:commit':
+        //* Commit Git message with Git status info
+        $regex = '/(.)(.)\s(.+)/';
+        $shcmd = 'git status -s';
+        $sh = shell_exec($shcmd);
+        $sh = explode("\n", $sh);
+        array_pop($sh);
+        $sh = array_map(function ($status) use ($regex) {
+            if (!preg_match($regex, $status, $matches)) {
+                return $status;
+            }
+            array_shift($matches);
+            [$x, $y, $path] = $matches;
+            $x = GIT_STATUS[trim($x)] ?? $x;
+            $y = GIT_STATUS[trim($y)] ?? $y;
+            return [$x, $y, $path];
+        }, $sh);
+
+        $logs = [];
+        foreach ($sh as $log) {
+            [$x, $y, $path] = $log;
+            $log = '• ';
+            switch ($x) {
+                case 'modified':
+                    $log .= 'Updated';
+                    break;
+                case 'added':
+                    $log .= 'Add new file: ';
+                    break;
+                case 'deleted':
+                    $log .= 'Delete';
+                    break;
+                default:
+                    $log .= ucwords($x);
+            }
+            array_push($logs, $log . ' ' . $path);
+        }
+        $msg = count($argv) ? join(' ', $argv) : 'Bug Fixed and Changes';
+        $logs = join("\n", $logs);
+        $commit_msg = join("\n", [$msg, $logs]);
+        $shcmd = 'git commit -m ' . escapeshellarg($commit_msg);
+        system($shcmd);
+        break;
+
+    case 'open':
+        //* Launch Git repository on browser
+        $launch = function (string $url) {
+            switch (strtolower(substr(PHP_OS, 0, 3))) {
+                case 'win':
+                    $ext = 'start';
+                    break;
+                case 'dar':
+                    $ext = 'open';
+                    break;
+                case 'lin':
+                    $ext = 'xdg-open';
+                    break;
+                default:
+                    echo "Unable to launch on browser. Please manually visit to link: \033[0;4m{$url}\033[0m", PHP_EOL;
+                    exit(1);
+            }
+            $url = preg_replace('!\.git$!', '', $url);
+            echo " > Launching \033[0;34;4m{$url}\033[0m on browser", PHP_EOL;
+            return join(' ', [$ext, $url]);
+        };
+
+        //* Open Git repository on browser
+        $git = realpath('.git');
+        if (!is_dir($git)) {
+            echo "Git is not initalized", PHP_EOL .
+                exit(1);
+        }
+        if (!$config = realpath(join(DIRECTORY_SEPARATOR, [$git, 'config']))) {
+            echo "Git config not found", PHP_EOL;
+            exit(1);
+        }
+        $config = parse_ini_file($config, true);
+        $remotes = [];
+        foreach ($config as $name => $value) {
+            if (preg_match('/^remote (.+)/', $name, $matches)) {
+                $remote = $matches[1];
+                $remotes[$remote] = $value;
+            }
+        }
+        switch (count($remotes)) {
+            case 1:
+                $shcmd = $launch($remotes[$remote]['url']);
+                break;
+            case 0:
+                echo 'There is no remotes in your git repository', PHP_EOL;
+                exit(0);
+            default:
+                if (!isset($argv[0])) {
+                    echo "remote is required as argument", PHP_EOL;
+                    echo " Avaliable remotes: \n\t- ", join("\n\t- ", array_keys($remotes)), PHP_EOL;
+                    exit(1);
+                }
+                if (!isset($remotes[$argv[0]])) {
+                    echo "remote: {$argv[0]} does not exist";
+                    exit(1);
+                }
+                $remote = $remotes[$argv[0]];
+                $shcmd = $launch($remote['url']);
+        }
+        shell_exec($shcmd);
+        break;
+
+    case 'make:class':
+        passthru(__DIR__.'/make-phpclass '.implode(' ', $argv));
+        break;
+
+    default:
+        //* [error] command does not exist
+        echo " • \033[0mcommand not found: \033[1;31m{$cmd}\033[0m", PHP_EOL;
+        exit(1);
+}
+
+exit(0);

@@ -1,0 +1,182 @@
+#!/usr/bin/env php
+<?php
+
+isset($argv) || count($argv) > 2 || exit(1);
+
+$bash_source = array_shift($argv);
+
+$options = [
+    'namespace' => null,
+    'dist' => null,
+    'extends' => null, //* class (separate by , comma)
+    'implements' => null, //* interface (separate by , comma)
+    'capitalize' => true,
+    'show-path' => false,
+    'force' => false,
+    'constructor' => false,
+    'trait' => false,
+    'interface' => false,
+    'abstract' => false,
+];
+
+$opts = [
+    'n' => 'namespace',
+    'd' => 'dist',
+    'C' => 'capitalize',
+    'c' => 'constructor',
+    'a' => 'abstract',
+    'i' => 'interface',
+    't' => 'trait',
+    'e' => 'show-path',
+    'f' => 'force',
+];
+
+$argv = array_filter($argv, function ($arg) use (&$options, $opts) {
+    if (! preg_match('/^-(-?)(.+)/', $arg, $m, PREG_UNMATCHED_AS_NULL)) {
+        return true;
+    }
+
+    $input = explode('=', $m[2]);
+    $index = $input[0];
+    $value = $input[1] ?? null;
+
+    if (empty($m[1])) {
+        if (!key_exists($index, $opts)) {
+            throw new Exception('Invalid short option format ['.$arg.']'); 
+        }
+        $index = $opts[$index];
+    }
+
+    if (!key_exists($index, $options)) {
+        throw new Exception('Invalid option format ['.$arg.']'); 
+    }
+    
+    $default = $options[$index];
+
+    $options[$index] = is_bool($default) ? !($default) : ($value ?? $default);
+});
+
+$className = array_shift($argv);
+
+if (empty($className)) {
+    echo " • Required argument <classname>", PHP_EOL;
+    exit(1);
+}
+
+$className = preg_replace('/[.:\/\\\\]/', '\\', $className);
+$classList = explode('\\', $className);
+
+if ($options['capitalize']) {
+    $classList = array_map(function ($n) {
+        return strtoupper(substr($n, 0, 1)) . substr($n, 1);
+    }, $classList);
+    $className = join('\\', $classList);
+}
+
+$namespace = implode('\\', array_slice($classList, 0, count($classList) - 1));
+
+$basePath = array_shift($argv) ?: '.';
+
+$pathToFile = implode('/', [$basePath, ...$classList]) . '.php';
+
+function complie(string $template, array $data = [])
+{
+    foreach (file($template) as $line):
+        foreach ($data as $name => $value):
+            $varname = '{' . $name . '}';
+            if (preg_match('/\{ ?'.$name.'\}/', $line)) {
+                $line = str_replace($varname, $value, $line);
+            }
+        endforeach;
+        $contents[] = $line;
+    endforeach;
+
+    return implode('', $contents);
+}
+
+$type = 'class';
+
+if ($options['trait'] === true) {
+    $type = 'trait';
+}
+
+if ($options['interface'] === true) {
+    $type = 'interface';
+}
+
+if ($options['abstract'] === true) {
+    $type = "abstract {$type}";
+}
+
+
+$data = [
+    'type' => $type,
+    'namespace' => '',
+    'classname'=> $className,
+    'shortname' => end($classList),
+    'extends' => '',
+    'implements' => '',
+];
+
+if ($namespace) {
+    $data['namespace'] = 'namespace ' . $namespace . ';';
+}
+
+if (isset($options['extends'])) {
+    $extends = explode(',', $options['extends']);
+    $extends = implode(', ', $extends);
+    $data['extends'] = " extends {$extends}";
+}
+
+if (isset($options['implements'])) {
+    $implements = explode(',', $options['implements']);
+    $implements = implode(', ', $implements);
+    $data['implements'] = " implements {$implements}";
+}
+
+$content = complie(__DIR__.'/class.template.phtml', $data);
+
+//echo $className, ' (', $pathToFile, ')', PHP_EOL;
+
+if (isset($options['dist'])) {
+    $pathToFile = implode(DIRECTORY_SEPARATOR, [
+        $options['dist'], basename($pathToFile)
+    ]);
+}
+
+if (!is_dir($dirname = dirname($pathToFile))) {
+    $_dir = $pathToFile;
+    $unexisted_dir = [];
+
+    while(!is_dir($_dir = dirname($_dir))) {
+        $unexisted_dir[] = basename($_dir);
+    }
+
+    $unexisted_dir = implode(DIRECTORY_SEPARATOR, [
+        $basePath, ...array_reverse($unexisted_dir)
+    ]);
+
+    echo "\033[1;41;38m ERROR \033[0;4;31m Failed to create \033[1m{$className}::class\033[0m", PHP_EOL;
+    echo " \033[2m Unexisted directory: \033[0m{$unexisted_dir}\033[0m", PHP_EOL;
+   exit(1);
+}
+
+if (is_file($pathToFile) && !$options['force']) {
+    echo " > \033[2;37mDo you want to replace an existing file? \033[0;2;34m <n> [y/n]:\033[0m ";
+    $fh = fopen('php://stdin', 'r');
+    $ans = fread($fh, 1);
+    if (strtolower($ans) !== 'y') {
+        echo PHP_EOL, "\033[31m [-] \033[0m Terminated!", PHP_EOL;
+        exit(0);
+    }
+}
+if (file_put_contents($pathToFile, $content)) {
+    if ($options['show-path']) {
+        echo $pathToFile , PHP_EOL;
+    } else {
+        echo "\033[1;42;30m COMPLETED \033[0;4m Created new PHP File \033[1m{$className}::class\033[0m", PHP_EOL, PHP_EOL;
+        echo " \033[2m File path:\n \033[0m{$pathToFile}\033[0m", PHP_EOL;
+    }
+}
+
+exit(0);
