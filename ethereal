@@ -62,7 +62,7 @@ switch ($cmd) {
             array_push($logs, $log . ' ' . $path);
         }
         $msg = count($argv) ? join(' ', $argv) : 'Bug Fixed and Changes';
-        $logs = join("\n", $logs);
+        $logs = join(PHP_EOL, $logs);
         $commit_msg = join("\n", [$msg, $logs]);
         $shcmd = 'git commit -m ' . escapeshellarg($commit_msg);
         system($shcmd);
